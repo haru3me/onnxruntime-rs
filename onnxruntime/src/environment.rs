@@ -96,7 +96,11 @@ impl Environment {
 
             let mut env_ptr: *mut sys::OrtEnv = std::ptr::null_mut();
 
+            #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
             let logging_function: sys::OrtLoggingFunction = Some(custom_logger);
+            #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+            let logging_function: sys::OrtLoggingFunction = Some(custom_logger as *const u8);
+
             // FIXME: What should go here?
             let logger_param: *mut std::ffi::c_void = std::ptr::null_mut();
 

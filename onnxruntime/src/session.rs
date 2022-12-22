@@ -610,9 +610,13 @@ impl<'a> Session<'a> {
             .map(|p| {
                 assert_not_null_pointer(p, "i8 for CString")?;
                 #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
-                unsafe { Ok(CString::from_raw(p as *mut i8)) }
+                unsafe {
+                    Ok(CString::from_raw(p as *mut i8))
+                }
                 #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-                unsafe { Ok(CString::from_raw(p as *mut u8)) }
+                unsafe {
+                    Ok(CString::from_raw(p as *mut u8))
+                }
             })
             .collect();
         cstrings?;
@@ -781,27 +785,41 @@ mod dangerous {
         Ok(num_nodes)
     }
 
+    #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
     fn extract_input_name(
         session_ptr: *mut sys::OrtSession,
         allocator_ptr: *mut sys::OrtAllocator,
         i: usize,
     ) -> Result<String> {
         let f = g_ort().SessionGetInputName.unwrap();
-        #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
         extract_io_name(f, session_ptr, allocator_ptr, i)
-        #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    }
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    fn extract_input_name(
+        session_ptr: *mut sys::OrtSession,
+        allocator_ptr: *mut sys::OrtAllocator,
+        i: usize,
+    ) -> Result<String> {
+        let f = g_ort().SessionGetInputName.unwrap();
         extract_io_name(f, session_ptr, allocator_ptr, i as *mut *mut i8)
     }
 
+    #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
     fn extract_output_name(
         session_ptr: *mut sys::OrtSession,
         allocator_ptr: *mut sys::OrtAllocator,
         i: usize,
     ) -> Result<String> {
         let f = g_ort().SessionGetOutputName.unwrap();
-        #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
         extract_io_name(f, session_ptr, allocator_ptr, i)
-        #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    }
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    fn extract_output_name(
+        session_ptr: *mut sys::OrtSession,
+        allocator_ptr: *mut sys::OrtAllocator,
+        i: usize,
+    ) -> Result<String> {
+        let f = g_ort().SessionGetOutputName.unwrap();
         extract_io_name(f, session_ptr, allocator_ptr, i as *mut *mut i8)
     }
 

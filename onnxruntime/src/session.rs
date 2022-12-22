@@ -785,7 +785,6 @@ mod dangerous {
         Ok(num_nodes)
     }
 
-    #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
     fn extract_input_name(
         session_ptr: *mut sys::OrtSession,
         allocator_ptr: *mut sys::OrtAllocator,
@@ -794,17 +793,7 @@ mod dangerous {
         let f = g_ort().SessionGetInputName.unwrap();
         extract_io_name(f, session_ptr, allocator_ptr, i)
     }
-    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    fn extract_input_name(
-        session_ptr: *mut sys::OrtSession,
-        allocator_ptr: *mut sys::OrtAllocator,
-        i: usize,
-    ) -> Result<String> {
-        let f = g_ort().SessionGetInputName.unwrap();
-        extract_io_name(f, session_ptr, allocator_ptr, i as *mut *mut i8)
-    }
 
-    #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
     fn extract_output_name(
         session_ptr: *mut sys::OrtSession,
         allocator_ptr: *mut sys::OrtAllocator,
@@ -813,22 +802,37 @@ mod dangerous {
         let f = g_ort().SessionGetOutputName.unwrap();
         extract_io_name(f, session_ptr, allocator_ptr, i)
     }
-    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    fn extract_output_name(
-        session_ptr: *mut sys::OrtSession,
-        allocator_ptr: *mut sys::OrtAllocator,
-        i: usize,
-    ) -> Result<String> {
-        let f = g_ort().SessionGetOutputName.unwrap();
-        extract_io_name(f, session_ptr, allocator_ptr, i as *mut *mut i8)
-    }
 
+    #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
     fn extract_io_name(
         f: extern_system_fn! { unsafe fn(
             *const sys::OrtSession,
             usize,
             *mut sys::OrtAllocator,
             *mut *mut i8,
+        ) -> *mut sys::OrtStatus },
+        session_ptr: *mut sys::OrtSession,
+        allocator_ptr: *mut sys::OrtAllocator,
+        i: usize,
+    ) -> Result<String> {
+        let mut name_bytes: *mut i8 = std::ptr::null_mut();
+
+        let status = unsafe { f(session_ptr, i, allocator_ptr, &mut name_bytes) };
+        status_to_result(status).map_err(OrtError::InputName)?;
+        assert_not_null_pointer(name_bytes, "InputName")?;
+
+        // FIXME: Is it safe to keep ownership of the memory?
+        let name = char_p_to_string(name_bytes)?;
+
+        Ok(name)
+    }
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    fn extract_io_name(
+        f: extern_system_fn! { unsafe fn(
+            *const sys::OrtSession,
+            usize,
+            *mut sys::OrtAllocator,
+            *mut *mut u8,
         ) -> *mut sys::OrtStatus },
         session_ptr: *mut sys::OrtSession,
         allocator_ptr: *mut sys::OrtAllocator,

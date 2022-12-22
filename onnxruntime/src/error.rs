@@ -212,7 +212,10 @@ impl From<OrtStatusWrapper> for std::result::Result<(), OrtApiError> {
         if status.0.is_null() {
             Ok(())
         } else {
+            #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
             let raw: *const i8 = unsafe { g_ort().GetErrorMessage.unwrap()(status.0) };
+            #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+            let raw: *const u8 = unsafe { g_ort().GetErrorMessage.unwrap()(status.0) };
 
             match char_p_to_string(raw) {
                 Ok(msg) => Err(OrtApiError::Msg(msg)),

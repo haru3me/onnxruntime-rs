@@ -241,9 +241,9 @@ mod onnxruntime {
         }
     }
 
+    #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
     extern_system_fn! {
         /// Callback from C that will handle the logging, forwarding the runtime's logs to the tracing crate.
-        #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
         pub(crate) fn custom_logger(
             _params: *mut std::ffi::c_void,
             severity: sys::OrtLoggingLevel,
@@ -294,7 +294,10 @@ mod onnxruntime {
                 Level::ERROR => error!("{:?}", message),
             }
         }
-        #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    }
+
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    extern_system_fn! {
         pub(crate) fn custom_logger(
             _params: *mut std::ffi::c_void,
             severity: sys::OrtLoggingLevel,

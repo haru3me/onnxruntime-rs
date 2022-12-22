@@ -838,7 +838,7 @@ mod dangerous {
         allocator_ptr: *mut sys::OrtAllocator,
         i: usize,
     ) -> Result<String> {
-        let mut name_bytes: *mut i8 = std::ptr::null_mut();
+        let mut name_bytes: *mut u8 = std::ptr::null_mut();
 
         let status = unsafe { f(session_ptr, i, allocator_ptr, &mut name_bytes) };
         status_to_result(status).map_err(OrtError::InputName)?;

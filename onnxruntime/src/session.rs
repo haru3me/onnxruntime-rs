@@ -518,12 +518,21 @@ impl<'a> Session<'a> {
 
         // Build arguments to Run()
 
+        #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
         let input_names_ptr: Vec<*const i8> = self
             .inputs
             .iter()
             .map(|input| input.name.clone())
             .map(|n| CString::new(n).unwrap())
             .map(|n| n.into_raw() as *const i8)
+            .collect();
+        #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+        let input_names_ptr: Vec<*const u8> = self
+            .inputs
+            .iter()
+            .map(|input| input.name.clone())
+            .map(|n| CString::new(n).unwrap())
+            .map(|n| n.into_raw() as *const u8)
             .collect();
 
         let output_names_cstring: Vec<CString> = self
@@ -532,9 +541,16 @@ impl<'a> Session<'a> {
             .map(|output| output.name.clone())
             .map(|n| CString::new(n).unwrap())
             .collect();
+
+        #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
         let output_names_ptr: Vec<*const i8> = output_names_cstring
             .iter()
             .map(|n| n.as_ptr() as *const i8)
+            .collect();
+        #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+        let output_names_ptr: Vec<*const u8> = output_names_cstring
+            .iter()
+            .map(|n| n.as_ptr() as *const u8)
             .collect();
 
         let mut output_tensor_extractors_ptrs: Vec<*mut sys::OrtValue> =
@@ -595,7 +611,14 @@ impl<'a> Session<'a> {
             .into_iter()
             .map(|p| {
                 assert_not_null_pointer(p, "i8 for CString")?;
-                unsafe { Ok(CString::from_raw(p as *mut i8)) }
+                #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
+                unsafe {
+                    Ok(CString::from_raw(p as *mut i8))
+                }
+                #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+                unsafe {
+                    Ok(CString::from_raw(p as *mut u8))
+                }
             })
             .collect();
         cstrings?;
@@ -782,6 +805,7 @@ mod dangerous {
         extract_io_name(f, session_ptr, allocator_ptr, i)
     }
 
+    #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
     fn extract_io_name(
         f: extern_system_fn! { unsafe fn(
             *const sys::OrtSession,
@@ -794,6 +818,29 @@ mod dangerous {
         i: usize,
     ) -> Result<String> {
         let mut name_bytes: *mut i8 = std::ptr::null_mut();
+
+        let status = unsafe { f(session_ptr, i, allocator_ptr, &mut name_bytes) };
+        status_to_result(status).map_err(OrtError::InputName)?;
+        assert_not_null_pointer(name_bytes, "InputName")?;
+
+        // FIXME: Is it safe to keep ownership of the memory?
+        let name = char_p_to_string(name_bytes)?;
+
+        Ok(name)
+    }
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    fn extract_io_name(
+        f: extern_system_fn! { unsafe fn(
+            *const sys::OrtSession,
+            usize,
+            *mut sys::OrtAllocator,
+            *mut *mut u8,
+        ) -> *mut sys::OrtStatus },
+        session_ptr: *mut sys::OrtSession,
+        allocator_ptr: *mut sys::OrtAllocator,
+        i: usize,
+    ) -> Result<String> {
+        let mut name_bytes: *mut u8 = std::ptr::null_mut();
 
         let status = unsafe { f(session_ptr, i, allocator_ptr, &mut name_bytes) };
         status_to_result(status).map_err(OrtError::InputName)?;
